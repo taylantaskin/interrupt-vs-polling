@@ -1,0 +1,105 @@
+===== SIMULATION PARAMETERS =====
+Polling Interval (s),0.1
+Interrupt Interval (s),1.0
+Simulation Duration (s),10.0
+Mode,Normal
+
+===== SUMMARY METRICS =====
+Total Polling Events,65
+Total Interrupt Events,9
+Total Events,74
+CPU Load (%),87.84
+
+===== LATENCY METRICS (ms) =====
+Metric,Polling,Interrupt,Combined
+Mean,6.726,3.853,6.376
+Median,6.579,3.851,6.144
+Std Dev,2.979,1.679,3.003
+Min,1.302,1.042,1.042
+Max,12.490,6.241,12.490
+95th Percentile,11.827,5.922,11.439
+
+===== THROUGHPUT METRICS (events/s) =====
+Mean,7.706
+Median,8.000
+Std Dev,1.015
+Min,4.000
+Max,9.000
+95th Percentile,8.200
+
+===== RAW EVENT DATA =====
+Time (s),Event Type,Latency (ms)
+0.150,Polling,10.471
+0.295,Polling,8.608
+0.419,Polling,8.211
+0.538,Polling,10.303
+0.680,Polling,2.917
+0.825,Polling,6.295
+1.079,Polling,2.730
+1.209,Polling,8.654
+1.340,Polling,4.825
+1.490,Polling,8.906
+1.626,Polling,9.275
+1.779,Polling,10.362
+1.941,Polling,6.373
+2.074,Polling,10.147
+2.298,Polling,11.999
+2.444,Polling,2.022
+2.590,Polling,5.611
+2.744,Polling,7.537
+2.925,Polling,4.439
+3.067,Polling,2.013
+3.225,Polling,7.966
+3.378,Polling,4.593
+3.526,Polling,7.462
+3.777,Polling,10.219
+3.936,Polling,6.048
+4.091,Polling,6.625
+4.258,Polling,5.807
+4.424,Polling,3.860
+4.576,Polling,8.731
+4.741,Polling,9.217
+4.896,Polling,4.842
+5.058,Polling,2.889
+5.211,Polling,11.137
+5.375,Polling,3.098
+5.508,Polling,9.302
+5.642,Polling,10.286
+5.774,Polling,1.302
+5.907,Polling,5.343
+6.092,Polling,10.301
+6.225,Polling,1.885
+6.366,Polling,6.471
+6.525,Polling,8.211
+6.679,Polling,12.000
+6.841,Polling,12.286
+6.976,Polling,7.219
+7.109,Polling,3.656
+7.275,Polling,9.185
+7.428,Polling,2.702
+7.574,Polling,5.706
+7.729,Polling,8.274
+7.891,Polling,3.750
+8.026,Polling,5.762
+8.179,Polling,7.155
+8.342,Polling,12.490
+8.493,Polling,4.118
+8.640,Polling,6.579
+8.795,Polling,1.761
+8.930,Polling,8.909
+9.059,Polling,5.899
+9.225,Polling,5.837
+9.366,Polling,5.504
+9.491,Polling,3.723
+9.641,Polling,6.703
+9.794,Polling,8.711
+9.924,Polling,1.958
+1.079,Interrupt,1.392
+2.074,Interrupt,6.241
+3.067,Interrupt,3.727
+4.091,Interrupt,3.186
+5.058,Interrupt,5.444
+6.092,Interrupt,1.042
+7.109,Interrupt,3.851
+8.026,Interrupt,4.384
+9.059,Interrupt,5.412
