@@ -29,6 +29,9 @@ class SimulationEngine:
         self.poll_times = []
         self.interrupt_times = []
         self.running = False
+        
+        # New tracking variables for CPU and efficiency
+        self.cpu_utilization_data = []  # List of (time, usage) tuples
 
     def start(self, callback):
         """Start the simulation"""
@@ -45,6 +48,7 @@ class SimulationEngine:
         """Run the actual simulation"""
         start_time = time.time()
         last_throughput_calc = start_time
+        last_cpu_calc = start_time
         event_window = []  # For calculating rolling throughput
 
         while self.running and time.time() - start_time < self.config.sim_duration.get():
@@ -67,9 +71,16 @@ class SimulationEngine:
                 self._process_interrupt_event(current_time)
                 event_window.append(time.time())
 
-            # Calculate CPU load based on polling vs interrupts
-            total_events = max((self.poll_count + self.interrupt_count), 1)
-            self.cpu_load = (self.poll_count / total_events) * 100
+            # Calculate CPU load and store utilization data every 0.1 seconds
+            if time.time() - last_cpu_calc >= 0.1:
+                total_events = max((self.poll_count + self.interrupt_count), 1)
+                self.cpu_load = (self.poll_count / total_events) * 100
+                
+                # Calculate CPU utilization based on recent activity
+                recent_events = len([t for t in event_window if time.time() - t <= 0.1])
+                cpu_usage = min(recent_events * 10, 100)  # Each event contributes 10% CPU usage
+                self.cpu_utilization_data.append((current_time, cpu_usage))
+                last_cpu_calc = time.time()
 
             # Calculate throughput (events per second) every 0.5 seconds
             if time.time() - last_throughput_calc >= 0.5:
@@ -224,58 +235,104 @@ class ChartManager:
     def __init__(self, parent):
         self.parent = parent
         self._create_charts()
-
+        self.update_interval = 0.5  # Update interval in seconds
+        self.last_update_time = 0
+        self.data_window_size = 100  # Maximum number of data points to show
+        
     def _create_charts(self):
         """Create the chart figures and axes"""
+        # Create figure for CPU utilization
+        self.cpu_util_fig = Figure(figsize=(6, 2), dpi=100)
+        self.cpu_util_ax = self.cpu_util_fig.add_subplot(111)
+        self.cpu_util_ax.set_title('CPU Utilization Over Time')
+        self.cpu_canvas = FigureCanvasTkAgg(self.cpu_util_fig, master=self.parent)
+        self.cpu_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
         # Create figure for events plot
-        self.events_fig = Figure(figsize=(8, 4), dpi=100)
+        self.events_fig = Figure(figsize=(6, 2), dpi=100)
         self.events_ax = self.events_fig.add_subplot(111)
         self.events_ax.set_title('Interrupt vs Polling Simulation')
         self.events_canvas = FigureCanvasTkAgg(self.events_fig, master=self.parent)
         self.events_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
         # Create figure for latency plot
-        self.latency_fig = Figure(figsize=(8, 3), dpi=100)
+        self.latency_fig = Figure(figsize=(6, 2), dpi=100)
         self.latency_ax = self.latency_fig.add_subplot(111)
         self.latency_ax.set_title('Event Processing Latency')
         self.latency_canvas = FigureCanvasTkAgg(self.latency_fig, master=self.parent)
         self.latency_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
         # Create figure for throughput plot
-        self.throughput_fig = Figure(figsize=(8, 3), dpi=100)
+        self.throughput_fig = Figure(figsize=(6, 2), dpi=100)
         self.throughput_ax = self.throughput_fig.add_subplot(111)
         self.throughput_ax.set_title('System Throughput')
         self.throughput_canvas = FigureCanvasTkAgg(self.throughput_fig, master=self.parent)
         self.throughput_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
+    def _limit_data_points(self, data_list, max_points=100):
+        """Limit the number of data points to improve performance"""
+        if len(data_list) > max_points:
+            return data_list[-max_points:]
+        return data_list
+
+    def update_cpu_utilization(self, time_points, cpu_usage):
+        """Update the CPU utilization chart"""
+        current_time = time.time()
+        if current_time - self.last_update_time < self.update_interval:
+            return
+
+        self.cpu_util_ax.clear()
+        if time_points and cpu_usage:
+            # Limit data points
+            time_points = self._limit_data_points(time_points)
+            cpu_usage = self._limit_data_points(cpu_usage)
+            
+            self.cpu_util_ax.plot(time_points, cpu_usage, 'r-', label='CPU Usage')
+            self.cpu_util_ax.set_xlabel('Time (s)')
+            self.cpu_util_ax.set_ylabel('CPU Usage (%)')
+            self.cpu_util_ax.set_ylim(0, 100)
+            self.cpu_util_ax.grid(True)
+            self.cpu_util_ax.legend()
+        self.last_update_time = current_time
+        self.cpu_canvas.draw_idle()  # Use draw_idle instead of draw
+
     def update_events_chart(self, poll_times, interrupt_times, cpu_load):
         """Update the events chart"""
+        current_time = time.time()
+        if current_time - self.last_update_time < self.update_interval:
+            return
+
         self.events_ax.clear()
+        # Limit data points
+        poll_times = self._limit_data_points(poll_times)
+        interrupt_times = self._limit_data_points(interrupt_times)
+        
         self.events_ax.scatter(poll_times, [1] * len(poll_times), marker='>', color='red', label='Polling', s=100)
-        self.events_ax.scatter(interrupt_times, [2] * len(interrupt_times), marker='^', color='blue', label='Interrupt',
-                               s=100)
+        self.events_ax.scatter(interrupt_times, [2] * len(interrupt_times), marker='^', color='blue', label='Interrupt', s=100)
         self.events_ax.set_yticks([1, 2])
         self.events_ax.set_yticklabels(['Polling', 'Interrupt'])
         self.events_ax.set_xlabel('Time (s)')
         self.events_ax.set_title(f'Interrupt vs Polling Simulation - CPU Load: {cpu_load:.2f}%')
         self.events_ax.legend()
-        self.events_canvas.draw()
+        self.events_canvas.draw_idle()
 
     def update_latency_chart(self, poll_latencies, interrupt_latencies):
         """Update the latency chart"""
+        current_time = time.time()
+        if current_time - self.last_update_time < self.update_interval:
+            return
+
         self.latency_ax.clear()
 
-        times = []
-        poll_latencies_ms = []
-        for i, latency in enumerate(poll_latencies):
-            times.append(i)
-            poll_latencies_ms.append(latency * 1000)  # Convert to ms
+        # Limit data points
+        poll_latencies = self._limit_data_points(poll_latencies)
+        interrupt_latencies = self._limit_data_points(interrupt_latencies)
 
-        interrupt_times = []
-        interrupt_latencies_ms = []
-        for i, latency in enumerate(interrupt_latencies):
-            interrupt_times.append(i)
-            interrupt_latencies_ms.append(latency * 1000)  # Convert to ms
+        times = list(range(len(poll_latencies)))
+        poll_latencies_ms = [lat * 1000 for lat in poll_latencies]  # Convert to ms
+
+        interrupt_times = list(range(len(interrupt_latencies)))
+        interrupt_latencies_ms = [lat * 1000 for lat in interrupt_latencies]  # Convert to ms
 
         if poll_latencies_ms:
             self.latency_ax.plot(times, poll_latencies_ms, 'r-', label='Polling Latency')
@@ -286,13 +343,19 @@ class ChartManager:
         self.latency_ax.set_ylabel('Latency (ms)')
         self.latency_ax.set_title('Event Processing Latency')
         self.latency_ax.legend()
-        self.latency_canvas.draw()
+        self.latency_canvas.draw_idle()
 
     def update_throughput_chart(self, throughput_data):
         """Update the throughput chart"""
+        current_time = time.time()
+        if current_time - self.last_update_time < self.update_interval:
+            return
+
         self.throughput_ax.clear()
 
         if throughput_data:
+            # Limit data points
+            throughput_data = self._limit_data_points(throughput_data)
             times = [data[0] for data in throughput_data]
             values = [data[1] for data in throughput_data]
 
@@ -303,7 +366,7 @@ class ChartManager:
         else:
             self.throughput_ax.set_title('No throughput data yet')
 
-        self.throughput_canvas.draw()
+        self.throughput_canvas.draw_idle()
 
 
 class SimulationConfig:
@@ -357,12 +420,33 @@ class InterruptPollingSim:
         # Create configuration section
         self.create_config_section(control_frame)
 
-        # Graph frame (right side)
-        graph_frame = ttk.Frame(paned)
-        paned.add(graph_frame, weight=3)
+        # Graph frame (right side) with scrollbar
+        outer_graph_frame = ttk.Frame(paned)
+        paned.add(outer_graph_frame, weight=3)
+
+        # Add scrollbar
+        scrollbar = ttk.Scrollbar(outer_graph_frame)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # Create canvas for scrolling
+        canvas = tk.Canvas(outer_graph_frame)
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        # Configure scrollbar
+        scrollbar.config(command=canvas.yview)
+        canvas.config(yscrollcommand=scrollbar.set)
+
+        # Create frame for charts inside canvas
+        graph_frame = ttk.Frame(canvas)
+        canvas.create_window((0, 0), window=graph_frame, anchor='nw')
 
         # Create charts
         self.charts = ChartManager(graph_frame)
+
+        # Update scroll region when frame changes
+        def _configure_scroll_region(event):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+        graph_frame.bind('<Configure>', _configure_scroll_region)
 
     def create_menu(self):
         """Create the menu bar"""
@@ -494,12 +578,17 @@ class InterruptPollingSim:
             throughput = (self.engine.poll_count + self.engine.interrupt_count) / current_time
             self.throughput_label.config(text=f'Throughput: {throughput:.2f} events/s')
 
-        # Update charts
+        # Update all charts
         self.charts.update_events_chart(
             self.engine.poll_times[:], self.engine.interrupt_times[:], self.engine.cpu_load)
         self.charts.update_latency_chart(
             self.engine.poll_latencies[:], self.engine.interrupt_latencies[:])
         self.charts.update_throughput_chart(self.engine.throughput_data[:])
+        
+        # Update new charts
+        if self.engine.cpu_utilization_data:
+            times, usages = zip(*self.engine.cpu_utilization_data)
+            self.charts.update_cpu_utilization(times, usages)
 
 
 if __name__ == '__main__':
